@@ -1,0 +1,59 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# IDE files
+.idea/
+.vscode/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xccheckout
+*.moved-aside
+DerivedData/
+
+# Compiled binaries
+*.o
+*.obj
+*.a
+*.lib
+*.dylib
+*.so
+*.dll
+*.exe
+
+# Plugin binaries (keep in separate release branches/tags)
+*.vst3
+*.component
+*.app
+*.aaxplugin
+
+# OS files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# JUCE generated
+JuceLibraryCode/
+
+# Projucer files (if using CMake instead)
+*.jucer
+
+# Old/legacy directories
+Haas/
+HaasAlignDelay/

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40">
+  <defs>
+    <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#7B5FFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9b7fff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- HAAS text -->
+  <text x="5" y="28" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="bold" fill="#e8e8f0">HAAS</text>
+
+  <!-- ALIGN badge -->
+  <rect x="85" y="8" width="55" height="24" rx="4" ry="4" fill="url(#purpleGrad)"/>
+  <text x="112" y="25" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">ALIGN</text>
+
+  <!-- DELAY text -->
+  <text x="148" y="28" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="normal" fill="#8888a0">DELAY</text>
+</svg>
