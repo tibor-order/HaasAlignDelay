@@ -29,6 +29,7 @@ target_sources(HaasAlignDelay
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
         Source/UI/VoxProLookAndFeel.cpp
+        Source/UI/NuroLookAndFeel.cpp
 )
 
 # Add binary data (logo)

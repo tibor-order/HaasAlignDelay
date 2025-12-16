@@ -2,15 +2,14 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "UI/VoxProLookAndFeel.h"
-#include "UI/LevelMeter.h"
-#include "UI/CorrelationMeter.h"
+#include "UI/NuroLookAndFeel.h"
+#include "UI/NuroMeter.h"
 
 /**
- * @brief HaasAlignDelayEditor - Main Editor with Auto Phase Correction UI
+ * @brief HaasAlignDelayEditor - Nuro Audio Style UI
  *
- * Plugin editor providing the user interface for the Haas Align Delay.
- * Features scalable UI with preset sizes and intelligent auto phase feedback.
+ * Premium dark theme plugin editor matching Waves X-Vox Pro aesthetics.
+ * Features glowing cyan knobs, LED-style meters, and neon accents.
  */
 class HaasAlignDelayEditor : public juce::AudioProcessorEditor,
                               private juce::Timer
@@ -24,17 +23,19 @@ public:
 
 private:
     void timerCallback() override;
-    void drawPanel(juce::Graphics& g, juce::Rectangle<float> bounds);
-    void drawCorrectionIndicator(juce::Graphics& g, juce::Rectangle<float> bounds, float scale);
+    void drawPanel(juce::Graphics& g, juce::Rectangle<float> bounds, const juce::String& title);
+    void drawValueDisplay(juce::Graphics& g, juce::Rectangle<float> bounds,
+                          const juce::String& value, const juce::String& subValue = {});
+    void drawCorrectionIndicator(juce::Graphics& g, juce::Rectangle<float> bounds);
     void setScalePreset(int presetIndex);
 
     HaasAlignDelayProcessor& processorRef;
-    UI::VoxProLookAndFeel voxLookAndFeel;
+    UI::NuroLookAndFeel nuroLookAndFeel;
     juce::Image logoImage;
 
     // Fixed scale presets (like FabFilter Pro-Q)
-    static constexpr int baseWidth = 580;
-    static constexpr int baseHeight = 380;
+    static constexpr int baseWidth = 650;
+    static constexpr int baseHeight = 420;
     static constexpr float scalePresets[] = { 0.5f, 0.75f, 1.0f, 1.5f };
     static constexpr int numScalePresets = 4;
     int currentScalePreset = 2;  // Default to 100%
@@ -57,10 +58,10 @@ private:
     // Phase Safety selector (Relaxed/Balanced/Strict)
     juce::ComboBox phaseSafetySelector;
 
-    // Meters
-    UI::LevelMeter inputMeter;
-    UI::LevelMeter outputMeter;
-    UI::CorrelationMeter correlationMeter;
+    // Meters - using new Nuro style
+    UI::NuroLevelMeter inputMeter;
+    UI::NuroLevelMeter outputMeter;
+    UI::NuroCorrelationMeter correlationMeter;
 
     // Attachments
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayLeftAttachment;
