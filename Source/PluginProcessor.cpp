@@ -73,11 +73,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
         "Bypass",
         false));
 
-    // Auto Phase
+    // Auto Phase enabled
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{"autoPhase", 1},
         "Auto Phase",
         false));
+
+    // Phase Safety mode (0=Relaxed, 1=Balanced, 2=Strict)
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{"phaseSafety", 1},
+        "Phase Safety",
+        juce::StringArray{"Relaxed", "Balanced", "Strict"},
+        1)); // Default to Balanced
 
     return {params.begin(), params.end()};
 }
@@ -92,6 +99,17 @@ void HaasAlignDelayProcessor::updateDSPParameters()
     params.phaseInvertLeft = *apvts.getRawParameterValue("phaseLeft") > 0.5f;
     params.phaseInvertRight = *apvts.getRawParameterValue("phaseRight") > 0.5f;
     params.bypass = *apvts.getRawParameterValue("bypass") > 0.5f;
+    params.autoPhaseEnabled = *apvts.getRawParameterValue("autoPhase") > 0.5f;
+
+    // Convert choice index to PhaseSafetyMode
+    int safetyIndex = static_cast<int>(*apvts.getRawParameterValue("phaseSafety"));
+    switch (safetyIndex)
+    {
+        case 0: params.phaseSafety = DSP::PhaseSafetyMode::Relaxed; break;
+        case 1: params.phaseSafety = DSP::PhaseSafetyMode::Balanced; break;
+        case 2: params.phaseSafety = DSP::PhaseSafetyMode::Strict; break;
+        default: params.phaseSafety = DSP::PhaseSafetyMode::Balanced; break;
+    }
 
     dspProcessor.setParameters(params);
 }

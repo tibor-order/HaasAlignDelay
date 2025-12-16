@@ -50,6 +50,11 @@ public:
     float getInputLevel() const { return dspProcessor.getMetering().inputLevel; }
     float getOutputLevel() const { return dspProcessor.getMetering().outputLevel; }
     float getCorrelation() const { return dspProcessor.getMetering().correlation; }
+    float getWeightedCorrelation() const { return dspProcessor.getMetering().weightedCorrelation; }
+    float getCorrectionAmount() const { return dspProcessor.getMetering().correctionAmount; }
+    float getEffectiveWidth() const { return dspProcessor.getMetering().effectiveWidth; }
+    bool isCorrectionActive() const { return dspProcessor.getMetering().correctionActive; }
+    bool isTransientDetected() const { return dspProcessor.getMetering().transientDetected; }
 
     // Utility - delegates to DSP processor
     float msToSamples(float ms) const { return dspProcessor.msToSamples(ms); }

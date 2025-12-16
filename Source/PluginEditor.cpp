@@ -3,7 +3,7 @@
 #include "BinaryData.h"
 
 //==============================================================================
-// HaasAlignDelayEditor - Fixed Scale Presets UI
+// HaasAlignDelayEditor - Auto Phase Correction UI
 //==============================================================================
 HaasAlignDelayEditor::HaasAlignDelayEditor(HaasAlignDelayProcessor& p)
     : AudioProcessorEditor(&p), processorRef(p)
@@ -35,6 +35,13 @@ HaasAlignDelayEditor::HaasAlignDelayEditor(HaasAlignDelayProcessor& p)
     setupButton(phaseRightButton, "R");
     setupButton(bypassButton, "BYPASS");
     setupButton(autoPhaseButton, "AUTO");
+
+    // Phase Safety selector
+    phaseSafetySelector.addItem("Relaxed", 1);
+    phaseSafetySelector.addItem("Balanced", 2);
+    phaseSafetySelector.addItem("Strict", 3);
+    phaseSafetySelector.setSelectedId(2, juce::dontSendNotification);
+    addAndMakeVisible(phaseSafetySelector);
 
     // Scale picker button (bottom-right corner, like FabFilter Pro-Q)
     scaleButton.setButtonText("100%");
@@ -70,6 +77,8 @@ HaasAlignDelayEditor::HaasAlignDelayEditor(HaasAlignDelayProcessor& p)
         apvts, "bypass", bypassButton);
     autoPhaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(
         apvts, "autoPhase", autoPhaseButton);
+    phaseSafetyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(
+        apvts, "phaseSafety", phaseSafetySelector);
 
     delayLeftSlider.onValueChange = [this]() { repaint(); };
     delayRightSlider.onValueChange = [this]() { repaint(); };
@@ -112,6 +121,45 @@ void HaasAlignDelayEditor::drawPanel(juce::Graphics& g, juce::Rectangle<float> b
 
     g.setColour(UI::VoxProLookAndFeel::panelBorder);
     g.drawRoundedRectangle(bounds, 10.0f * scale, 1.0f * scale);
+}
+
+void HaasAlignDelayEditor::drawCorrectionIndicator(juce::Graphics& g, juce::Rectangle<float> bounds, float scale)
+{
+    bool correctionActive = processorRef.isCorrectionActive();
+    float correctionAmount = processorRef.getCorrectionAmount();
+
+    // Draw indicator circle in top-right of panel
+    float indicatorSize = 8.0f * scale;
+    float indicatorX = bounds.getRight() - indicatorSize - 6 * scale;
+    float indicatorY = bounds.getY() + 6 * scale;
+
+    if (correctionActive)
+    {
+        // Pulsing glow when correcting
+        float pulse = 0.5f + 0.5f * std::sin(static_cast<float>(juce::Time::getMillisecondCounter()) * 0.005f);
+
+        // Outer glow
+        g.setColour(UI::VoxProLookAndFeel::accentYellow.withAlpha(0.3f * pulse));
+        g.fillEllipse(indicatorX - 4 * scale, indicatorY - 4 * scale,
+                      indicatorSize + 8 * scale, indicatorSize + 8 * scale);
+
+        // Inner indicator
+        g.setColour(UI::VoxProLookAndFeel::accentYellow);
+        g.fillEllipse(indicatorX, indicatorY, indicatorSize, indicatorSize);
+
+        // Show correction percentage in top-left
+        g.setColour(UI::VoxProLookAndFeel::accentYellow.withAlpha(0.8f));
+        g.setFont(juce::FontOptions(8.0f * scale));
+        juce::String corrText = "-" + juce::String(static_cast<int>(correctionAmount * 100)) + "%";
+        g.drawText(corrText, static_cast<int>(bounds.getX() + 6 * scale), static_cast<int>(bounds.getY() + 4 * scale),
+                   static_cast<int>(40 * scale), static_cast<int>(12 * scale), juce::Justification::centredLeft);
+    }
+    else if (autoPhaseButton.getToggleState())
+    {
+        // Dim green when auto phase is on but not correcting
+        g.setColour(UI::VoxProLookAndFeel::meterGreen.withAlpha(0.5f));
+        g.fillEllipse(indicatorX, indicatorY, indicatorSize, indicatorSize);
+    }
 }
 
 void HaasAlignDelayEditor::paint(juce::Graphics& g)
@@ -179,6 +227,13 @@ void HaasAlignDelayEditor::paint(juce::Graphics& g)
     {
         auto panelRect = juce::Rectangle<float>(panelX, panelArea.getY(), panelWidth, panelHeight);
         drawPanel(g, panelRect);
+
+        // Draw correction indicator on WIDTH panel (index 2)
+        if (i == 2)
+        {
+            drawCorrectionIndicator(g, panelRect, scale);
+        }
+
         panelX += panelWidth + panelSpacing;
     }
 
@@ -212,7 +267,11 @@ void HaasAlignDelayEditor::paint(juce::Graphics& g)
             subValueStr = juce::String(static_cast<int>(processorRef.msToSamples(static_cast<float>(delayRightSlider.getValue())))) + " smp";
         } else if (i == 2) {
             valueStr = juce::String(static_cast<int>(widthSlider.getValue())) + "%";
-            subValueStr = "";
+            // Show effective width if correction is active
+            if (processorRef.isCorrectionActive())
+            {
+                subValueStr = "-> " + juce::String(static_cast<int>(processorRef.getEffectiveWidth())) + "%";
+            }
         } else {
             valueStr = juce::String(static_cast<int>(mixSlider.getValue())) + "%";
             subValueStr = juce::String(static_cast<int>(processorRef.getCurrentSampleRate() / 1000.0)) + " kHz";
@@ -223,7 +282,12 @@ void HaasAlignDelayEditor::paint(juce::Graphics& g)
 
         if (subValueStr.isNotEmpty())
         {
-            g.setColour(UI::VoxProLookAndFeel::textGray);
+            // Use yellow for correction active subtext
+            if (i == 2 && processorRef.isCorrectionActive())
+                g.setColour(UI::VoxProLookAndFeel::accentYellow);
+            else
+                g.setColour(UI::VoxProLookAndFeel::textGray);
+
             g.setFont(juce::FontOptions(9.0f * scale));
             g.drawText(subValueStr, static_cast<int>(centerX - 50 * scale), static_cast<int>(valueY + 18 * scale),
                        static_cast<int>(100 * scale), static_cast<int>(14 * scale), juce::Justification::centred);
@@ -248,7 +312,7 @@ void HaasAlignDelayEditor::paint(juce::Graphics& g)
     g.drawText("SWAP", static_cast<int>(barCenterX - 22 * scale), static_cast<int>(buttonsStartY + 24 * scale + 6 * scale + 24 * scale + 4 * scale),
                static_cast<int>(44 * scale), static_cast<int>(10 * scale), juce::Justification::centred);
 
-    // Auto Phase label
+    // Auto Phase label and Safety label
     float panel3X = firstPanelX + 3 * (panelWidth + panelSpacing);
     float panel3CenterX = panel3X + panelWidth / 2.0f;
     g.setColour(UI::VoxProLookAndFeel::textDark);
@@ -256,6 +320,10 @@ void HaasAlignDelayEditor::paint(juce::Graphics& g)
     g.drawText("AUTO PHASE", static_cast<int>(panel3CenterX - 40 * scale),
                static_cast<int>(buttonsStartY + 24 * scale + 6 * scale + 24 * scale + 8 * scale),
                static_cast<int>(80 * scale), static_cast<int>(10 * scale), juce::Justification::centred);
+
+    g.drawText("SAFETY", static_cast<int>(panel3CenterX - 30 * scale),
+               static_cast<int>(buttonsStartY + 24 * scale + 6 * scale + 24 * scale + 30 * scale + 22 * scale),
+               static_cast<int>(60 * scale), static_cast<int>(10 * scale), juce::Justification::centred);
 
     // === FOOTER ===
     auto footerBounds = getLocalBounds().toFloat().removeFromBottom(footerHeight);
@@ -276,10 +344,27 @@ void HaasAlignDelayEditor::paint(juce::Graphics& g)
     g.drawText("INPUT", static_cast<int>(54 * scale), static_cast<int>(meterY - 2 * scale),
                static_cast<int>(40 * scale), static_cast<int>(14 * scale), juce::Justification::centredLeft);
 
-    // Correlation labels
+    // Correlation labels with color coding
     float corrWidth = 80.0f * scale;
     float corrX = footerBounds.getCentreX() - corrWidth / 2.0f;
     float meterHeight = 10.0f * scale;
+
+    // Color-coded correlation value
+    float corr = processorRef.getCorrelation();
+    juce::Colour corrColor;
+    if (corr > 0.5f)
+        corrColor = UI::VoxProLookAndFeel::meterGreen;
+    else if (corr > 0.3f)
+        corrColor = UI::VoxProLookAndFeel::meterYellow;
+    else
+        corrColor = UI::VoxProLookAndFeel::meterRed;
+
+    g.setColour(corrColor);
+    g.setFont(juce::FontOptions(9.0f * scale).withStyle("Bold"));
+    juce::String corrValueStr = (corr >= 0 ? "+" : "") + juce::String(corr, 2);
+    g.drawText(corrValueStr, static_cast<int>(corrX), static_cast<int>(meterY - 14 * scale),
+               static_cast<int>(corrWidth), static_cast<int>(12 * scale), juce::Justification::centred);
+
     g.setColour(UI::VoxProLookAndFeel::textDark);
     g.setFont(juce::FontOptions(7.0f * scale));
     g.drawText("-1", static_cast<int>(corrX - 10 * scale), static_cast<int>(meterY + meterHeight + 1 * scale),
@@ -352,12 +437,17 @@ void HaasAlignDelayEditor::resized()
                                 static_cast<int>(buttonsStartY + buttonHeight + buttonSpacing),
                                 static_cast<int>(buttonWidth), static_cast<int>(buttonHeight));
 
-    // Auto Phase button
+    // Auto Phase button and Safety selector
     float panel3X = firstPanelX + 3 * (panelWidth + panelSpacing);
     float panel3CenterX = panel3X + panelWidth / 2.0f;
     float autoButtonY = buttonsStartY + buttonHeight + buttonSpacing;
     autoPhaseButton.setBounds(static_cast<int>(panel3CenterX - 32 * scale), static_cast<int>(autoButtonY),
                               static_cast<int>(64 * scale), static_cast<int>(24 * scale));
+
+    // Phase Safety selector below AUTO button
+    float safetyY = autoButtonY + 24 * scale + 22 * scale;
+    phaseSafetySelector.setBounds(static_cast<int>(panel3CenterX - 40 * scale), static_cast<int>(safetyY),
+                                  static_cast<int>(80 * scale), static_cast<int>(20 * scale));
 
     // Meters in footer
     float meterHeight = 10.0f * scale;
