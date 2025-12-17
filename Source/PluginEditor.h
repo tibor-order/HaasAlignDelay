@@ -29,6 +29,7 @@ private:
                           const juce::String& value, const juce::String& subValue = {});
     void drawCorrectionIndicator(juce::Graphics& g, juce::Rectangle<float> bounds);
     void setScalePreset(int presetIndex);
+    float getScaleFactor() const;
 
     HaasAlignDelayProcessor& processorRef;
     UI::NuroLookAndFeel nuroLookAndFeel;
