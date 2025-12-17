@@ -7,10 +7,10 @@
 #include "UI/CorrelationMeter.h"
 
 /**
- * @brief HaasAlignDelayEditor - Main Editor with Fixed Scale Presets
+ * @brief HaasAlignDelayEditor - Main Editor with Auto Phase Correction UI
  *
  * Plugin editor providing the user interface for the Haas Align Delay.
- * Features scalable UI with preset sizes (like FabFilter Pro-Q).
+ * Features scalable UI with preset sizes and intelligent auto phase feedback.
  */
 class HaasAlignDelayEditor : public juce::AudioProcessorEditor,
                               private juce::Timer
@@ -25,6 +25,7 @@ public:
 private:
     void timerCallback() override;
     void drawPanel(juce::Graphics& g, juce::Rectangle<float> bounds);
+    void drawCorrectionIndicator(juce::Graphics& g, juce::Rectangle<float> bounds, float scale);
     void setScalePreset(int presetIndex);
 
     HaasAlignDelayProcessor& processorRef;
@@ -53,6 +54,9 @@ private:
     juce::TextButton bypassButton;
     juce::TextButton autoPhaseButton;
 
+    // Phase Safety selector (Relaxed/Balanced/Strict)
+    juce::ComboBox phaseSafetySelector;
+
     // Meters
     UI::LevelMeter inputMeter;
     UI::LevelMeter outputMeter;
@@ -67,6 +71,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> phaseRightAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoPhaseAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> phaseSafetyAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HaasAlignDelayEditor)
 };
