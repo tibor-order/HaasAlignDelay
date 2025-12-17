@@ -40,6 +40,18 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
         0.0f,
         juce::AudioParameterFloatAttributes().withLabel("ms")));
 
+    // Delay Link (couples L/R delay sliders)
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"delayLink", 1},
+        "Delay Link",
+        false));
+
+    // Delay Bypass
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"delayBypass", 1},
+        "Delay Bypass",
+        false));
+
     // Width (stereo width adjustment)
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"width", 1},
@@ -47,6 +59,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
         juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f),
         100.0f,
         juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    // Width Low Cut (high-pass filter on side channel)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"widthLowCut", 1},
+        "Width Low Cut",
+        juce::NormalisableRange<float>(20.0f, 500.0f, 1.0f, 0.5f),
+        250.0f,
+        juce::AudioParameterFloatAttributes().withLabel("Hz")));
+
+    // Width Bypass
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"widthBypass", 1},
+        "Width Bypass",
+        false));
 
     // Mix
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
@@ -67,6 +93,20 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
         "Phase Right",
         false));
 
+    // Phase Bypass
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"phaseBypass", 1},
+        "Phase Bypass",
+        false));
+
+    // Correction Speed (0-100%)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"correctionSpeed", 1},
+        "Correction Speed",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
+        50.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
     // Bypass
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{"bypass", 1},
@@ -86,20 +126,54 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
         juce::StringArray{"Relaxed", "Balanced", "Strict"},
         1)); // Default to Balanced
 
+    // Output Gain (-12 to +12 dB)
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"outputGain", 1},
+        "Output Gain",
+        juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
+        0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("dB")));
+
+    // Output Bypass
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"outputBypass", 1},
+        "Output Bypass",
+        false));
+
     return {params.begin(), params.end()};
 }
 
 void HaasAlignDelayProcessor::updateDSPParameters()
 {
     DSP::HaasParameters params;
+
+    // Delay parameters
     params.delayLeftMs = *apvts.getRawParameterValue("delayLeft");
     params.delayRightMs = *apvts.getRawParameterValue("delayRight");
+    params.delayLink = *apvts.getRawParameterValue("delayLink") > 0.5f;
+    params.delayBypass = *apvts.getRawParameterValue("delayBypass") > 0.5f;
+
+    // Width parameters
     params.width = *apvts.getRawParameterValue("width");
+    params.widthLowCut = *apvts.getRawParameterValue("widthLowCut");
+    params.widthBypass = *apvts.getRawParameterValue("widthBypass") > 0.5f;
+
+    // Mix
     params.mix = *apvts.getRawParameterValue("mix");
+
+    // Phase parameters
     params.phaseInvertLeft = *apvts.getRawParameterValue("phaseLeft") > 0.5f;
     params.phaseInvertRight = *apvts.getRawParameterValue("phaseRight") > 0.5f;
-    params.bypass = *apvts.getRawParameterValue("bypass") > 0.5f;
+    params.phaseBypass = *apvts.getRawParameterValue("phaseBypass") > 0.5f;
+    params.correctionSpeed = *apvts.getRawParameterValue("correctionSpeed");
     params.autoPhaseEnabled = *apvts.getRawParameterValue("autoPhase") > 0.5f;
+
+    // Master bypass
+    params.bypass = *apvts.getRawParameterValue("bypass") > 0.5f;
+
+    // Output parameters
+    params.outputGain = *apvts.getRawParameterValue("outputGain");
+    params.outputBypass = *apvts.getRawParameterValue("outputBypass") > 0.5f;
 
     // Convert choice index to PhaseSafetyMode
     int safetyIndex = static_cast<int>(*apvts.getRawParameterValue("phaseSafety"));

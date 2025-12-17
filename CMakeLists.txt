@@ -20,6 +20,9 @@ juce_add_plugin(HaasAlignDelay
     PLUGIN_CODE Haas
     FORMATS AU VST3 Standalone
     PRODUCT_NAME "Haas Align Delay"
+    BLUETOOTH_PERMISSION_ENABLED FALSE
+    MICROPHONE_PERMISSION_ENABLED FALSE
+    PLIST_TO_MERGE "<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>NSBluetoothAlwaysUsageDescription</key><string>This app may use Bluetooth for MIDI device connectivity.</string><key>NSMicrophoneUsageDescription</key><string>This app processes audio input.</string></dict></plist>"
 )
 
 juce_generate_juce_header(HaasAlignDelay)
@@ -78,23 +81,50 @@ add_executable(HaasAlignDelay_Tests
     Tests/catch2/catch_amalgamated.cpp
     Tests/TestMain.cpp
     Tests/UI/ReOrderColorsTest.cpp
+    Tests/UI/VerticalLevelMeterTest.cpp
+    Tests/UI/PhaseCorrelationMeterTest.cpp
+    Tests/UI/ModuleIconsTest.cpp
+    Tests/UI/ReOrderLookAndFeelTest.cpp
+    Tests/UI/LinearSliderLookAndFeelTest.cpp
+    Tests/UI/ButtonLookAndFeelTest.cpp
+    Tests/DSP/OutputGainTest.cpp
+    Tests/DSP/WidthLowCutTest.cpp
+    Tests/DSP/CorrectionSpeedTest.cpp
+    Tests/DSP/ModuleBypassTest.cpp
+    Tests/DSP/DelayLinkTest.cpp
+    Tests/PluginProcessorParamTest.cpp
+    # Include PluginProcessor source for parameter tests
+    Source/PluginProcessor.cpp
+    Source/PluginEditor.cpp
+    Source/UI/VoxProLookAndFeel.cpp
 )
 
 target_include_directories(HaasAlignDelay_Tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Tests
     ${CMAKE_CURRENT_SOURCE_DIR}/Source
+    ${CMAKE_BINARY_DIR}/HaasAlignDelay_artefacts/JuceLibraryCode
 )
 
 target_link_libraries(HaasAlignDelay_Tests PRIVATE
     HaasAlignDelay_TestableLib
+    HaasAlignDelayBinaryData
     juce::juce_core
     juce::juce_graphics
+    juce::juce_audio_utils
+    juce::juce_audio_processors
+    juce::juce_gui_basics
 )
 
 target_compile_definitions(HaasAlignDelay_Tests PRIVATE
     JUCE_STANDALONE_APPLICATION=1
     JUCE_USE_CURL=0
     JUCE_WEB_BROWSER=0
+    # Plugin definitions needed for PluginProcessor
+    JucePlugin_Name="Haas Align Delay"
+    JucePlugin_WantsMidiInput=0
+    JucePlugin_ProducesMidiOutput=0
+    JucePlugin_IsMidiEffect=0
+    JucePlugin_IsSynth=0
 )
 
 # Register test with CTest

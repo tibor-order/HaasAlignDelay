@@ -34,6 +34,15 @@ struct AutoPhaseMetering
 };
 
 /**
+ * @brief Correction timing parameters (in milliseconds)
+ */
+struct CorrectionTiming
+{
+    float attackMs = 105.0f;   // Attack time in ms
+    float releaseMs = 420.0f;  // Release time in ms
+};
+
+/**
  * @brief 2nd-order biquad filter for crossover and DC blocking
  */
 class BiquadFilter
@@ -316,6 +325,56 @@ public:
             // Smoothly return to no correction
             correctionGain = 0.0f;
         }
+    }
+
+    /**
+     * @brief Set the correction speed (0-100%)
+     *
+     * 0% = Slow (200ms attack, 800ms release) - gentle, musical
+     * 100% = Fast (10ms attack, 40ms release) - aggressive
+     *
+     * @param speed Speed percentage (0-100)
+     */
+    void setCorrectionSpeed(float speed)
+    {
+        // Clamp to valid range
+        correctionSpeed = std::max(0.0f, std::min(100.0f, speed));
+
+        // Interpolate timing between slow and fast
+        // Slow: 200ms attack, 800ms release
+        // Fast: 10ms attack, 40ms release
+        float t = correctionSpeed / 100.0f;
+        float attackTimeSec = (1.0f - t) * 0.200f + t * 0.010f;
+        float releaseTimeSec = (1.0f - t) * 0.800f + t * 0.040f;
+
+        // Update coefficients
+        attackCoeff = 1.0f - std::exp(-1.0f / (static_cast<float>(currentSampleRate) * attackTimeSec));
+        releaseCoeff = 1.0f - std::exp(-1.0f / (static_cast<float>(currentSampleRate) * releaseTimeSec));
+
+        // Store timing for query
+        currentAttackMs = attackTimeSec * 1000.0f;
+        currentReleaseMs = releaseTimeSec * 1000.0f;
+    }
+
+    /**
+     * @brief Get current correction timing parameters
+     * @return CorrectionTiming struct with attack and release in ms
+     */
+    CorrectionTiming getCorrectionTiming() const
+    {
+        CorrectionTiming timing;
+        timing.attackMs = currentAttackMs;
+        timing.releaseMs = currentReleaseMs;
+        return timing;
+    }
+
+    /**
+     * @brief Get the analysis window duration in milliseconds
+     * @return Analysis window in ms (constant ~50ms)
+     */
+    float getAnalysisWindowMs() const
+    {
+        return ANALYSIS_WINDOW_SEC * 1000.0f;
     }
 
     /**
@@ -619,6 +678,11 @@ private:
     PhaseSafetyMode safetyMode = PhaseSafetyMode::Balanced;
     float correlationThreshold = 0.3f;
     float noiseFloorLinear = 0.001f;
+
+    // Correction speed (0-100%)
+    float correctionSpeed = 50.0f;
+    float currentAttackMs = 105.0f;   // Default at 50% speed
+    float currentReleaseMs = 420.0f;  // Default at 50% speed
 
     // Metering output
     AutoPhaseMetering metering;
