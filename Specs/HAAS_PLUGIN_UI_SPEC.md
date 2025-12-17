@@ -726,4 +726,14 @@ g.setGradientFill(gradient);
 
 ---
 
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | Dec 2024 | Initial design specification |
+| 1.1 | Dec 2024 | MeterStrip: Horizontal labels (not rotated), 48 high-res segments, L/R labels, green dB readout |
+| 1.2 | Dec 2024 | Haas icon: 50% size, two overlapping waves with animated delayed wave (75% opacity, vertical oscillation) |
+
+---
+
 *End of Specification*
