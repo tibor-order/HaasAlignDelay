@@ -67,5 +67,8 @@ private:
     juce::AudioProcessorValueTreeState apvts;
     DSP::HaasProcessor dspProcessor;
 
+    // Output gain (applied after DSP processing)
+    float outputGainDb = 0.0f;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HaasAlignDelayProcessor)
 };

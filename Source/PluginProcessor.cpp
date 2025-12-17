@@ -25,7 +25,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> params;
 
-    // Delay parameters (0-50ms range for alignment)
+    // === DELAY MODULE ===
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"delayPower", 1},
+        "Delay Power",
+        true));
+
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"delayLeft", 1},
         "Delay Left",
@@ -40,23 +45,82 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
         0.0f,
         juce::AudioParameterFloatAttributes().withLabel("ms")));
 
-    // Width (stereo width adjustment)
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"delayLink", 1},
+        "Delay Link",
+        false));
+
+    // === WIDTH MODULE ===
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"widthPower", 1},
+        "Width Power",
+        true));
+
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"width", 1},
         "Width",
-        juce::NormalisableRange<float>(0.0f, 200.0f, 1.0f),
+        juce::NormalisableRange<float>(100.0f, 200.0f, 1.0f),
         100.0f,
         juce::AudioParameterFloatAttributes().withLabel("%")));
 
-    // Mix
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"lowCut", 1},
+        "Low Cut",
+        juce::NormalisableRange<float>(20.0f, 500.0f, 1.0f, 0.4f),
+        20.0f,
+        juce::AudioParameterFloatAttributes().withLabel("Hz")));
+
+    // === AUTO PHASE MODULE ===
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"autoPhase", 1},
+        "Auto Phase",
+        false));
+
+    params.push_back(std::make_unique<juce::AudioParameterChoice>(
+        juce::ParameterID{"phaseSafety", 1},
+        "Phase Safety",
+        juce::StringArray{"Relaxed", "Balanced", "Strict"},
+        1)); // Default to Balanced
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"threshold", 1},
+        "Threshold",
+        juce::NormalisableRange<float>(0.0f, 1.0f, 0.01f),
+        0.3f));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"speed", 1},
+        "Speed",
+        juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
+        50.0f,
+        juce::AudioParameterFloatAttributes().withLabel("%")));
+
+    // === OUTPUT MODULE ===
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"outputPower", 1},
+        "Output Power",
+        true));
+
+    params.push_back(std::make_unique<juce::AudioParameterFloat>(
+        juce::ParameterID{"outputGain", 1},
+        "Output Gain",
+        juce::NormalisableRange<float>(-12.0f, 12.0f, 0.1f),
+        0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("dB")));
+
     params.push_back(std::make_unique<juce::AudioParameterFloat>(
         juce::ParameterID{"mix", 1},
-        "Mix",
+        "Dry/Wet",
         juce::NormalisableRange<float>(0.0f, 100.0f, 1.0f),
         100.0f,
         juce::AudioParameterFloatAttributes().withLabel("%")));
 
-    // Phase invert
+    // === GLOBAL ===
+    params.push_back(std::make_unique<juce::AudioParameterBool>(
+        juce::ParameterID{"bypass", 1},
+        "Bypass",
+        false));
+
     params.push_back(std::make_unique<juce::AudioParameterBool>(
         juce::ParameterID{"phaseLeft", 1},
         "Phase Left",
@@ -67,51 +131,74 @@ juce::AudioProcessorValueTreeState::ParameterLayout HaasAlignDelayProcessor::cre
         "Phase Right",
         false));
 
-    // Bypass
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID{"bypass", 1},
-        "Bypass",
-        false));
-
-    // Auto Phase enabled
-    params.push_back(std::make_unique<juce::AudioParameterBool>(
-        juce::ParameterID{"autoPhase", 1},
-        "Auto Phase",
-        false));
-
-    // Phase Safety mode (0=Relaxed, 1=Balanced, 2=Strict)
-    params.push_back(std::make_unique<juce::AudioParameterChoice>(
-        juce::ParameterID{"phaseSafety", 1},
-        "Phase Safety",
-        juce::StringArray{"Relaxed", "Balanced", "Strict"},
-        1)); // Default to Balanced
-
     return {params.begin(), params.end()};
 }
 
 void HaasAlignDelayProcessor::updateDSPParameters()
 {
-    DSP::HaasParameters params;
-    params.delayLeftMs = *apvts.getRawParameterValue("delayLeft");
-    params.delayRightMs = *apvts.getRawParameterValue("delayRight");
-    params.width = *apvts.getRawParameterValue("width");
-    params.mix = *apvts.getRawParameterValue("mix");
-    params.phaseInvertLeft = *apvts.getRawParameterValue("phaseLeft") > 0.5f;
-    params.phaseInvertRight = *apvts.getRawParameterValue("phaseRight") > 0.5f;
-    params.bypass = *apvts.getRawParameterValue("bypass") > 0.5f;
-    params.autoPhaseEnabled = *apvts.getRawParameterValue("autoPhase") > 0.5f;
+    DSP::HaasParameters dspParams;
 
-    // Convert choice index to PhaseSafetyMode
+    // Check module power states
+    bool delayOn = *apvts.getRawParameterValue("delayPower") > 0.5f;
+    bool widthOn = *apvts.getRawParameterValue("widthPower") > 0.5f;
+    bool outputOn = *apvts.getRawParameterValue("outputPower") > 0.5f;
+
+    // Delay parameters (only apply if module is on)
+    if (delayOn)
+    {
+        dspParams.delayLeftMs = *apvts.getRawParameterValue("delayLeft");
+        dspParams.delayRightMs = *apvts.getRawParameterValue("delayRight");
+    }
+    else
+    {
+        dspParams.delayLeftMs = 0.0f;
+        dspParams.delayRightMs = 0.0f;
+    }
+
+    // Width parameters (only apply if module is on)
+    if (widthOn)
+    {
+        dspParams.width = *apvts.getRawParameterValue("width");
+    }
+    else
+    {
+        dspParams.width = 100.0f; // No stereo expansion when off
+    }
+
+    // Output mix (only apply if module is on)
+    if (outputOn)
+    {
+        dspParams.mix = *apvts.getRawParameterValue("mix");
+    }
+    else
+    {
+        dspParams.mix = 0.0f; // Full dry when off
+    }
+
+    // Phase invert
+    dspParams.phaseInvertLeft = *apvts.getRawParameterValue("phaseLeft") > 0.5f;
+    dspParams.phaseInvertRight = *apvts.getRawParameterValue("phaseRight") > 0.5f;
+
+    // Bypass
+    dspParams.bypass = *apvts.getRawParameterValue("bypass") > 0.5f;
+
+    // Auto phase
+    dspParams.autoPhaseEnabled = *apvts.getRawParameterValue("autoPhase") > 0.5f;
+
+    // Phase safety mode
     int safetyIndex = static_cast<int>(*apvts.getRawParameterValue("phaseSafety"));
     switch (safetyIndex)
     {
-        case 0: params.phaseSafety = DSP::PhaseSafetyMode::Relaxed; break;
-        case 1: params.phaseSafety = DSP::PhaseSafetyMode::Balanced; break;
-        case 2: params.phaseSafety = DSP::PhaseSafetyMode::Strict; break;
-        default: params.phaseSafety = DSP::PhaseSafetyMode::Balanced; break;
+        case 0: dspParams.phaseSafety = DSP::PhaseSafetyMode::Relaxed; break;
+        case 1: dspParams.phaseSafety = DSP::PhaseSafetyMode::Balanced; break;
+        case 2: dspParams.phaseSafety = DSP::PhaseSafetyMode::Strict; break;
+        default: dspParams.phaseSafety = DSP::PhaseSafetyMode::Balanced; break;
     }
 
-    dspProcessor.setParameters(params);
+    // Store output gain for processing
+    outputGainDb = *apvts.getRawParameterValue("outputGain");
+
+    dspProcessor.setParameters(dspParams);
 }
 
 const juce::String HaasAlignDelayProcessor::getName() const
@@ -226,6 +313,17 @@ void HaasAlignDelayProcessor::processBlock(juce::AudioBuffer<float>& buffer,
         auto* channelL = buffer.getWritePointer(0);
         auto* channelR = buffer.getWritePointer(1);
         dspProcessor.processBlock(channelL, channelR, buffer.getNumSamples());
+
+        // Apply output gain
+        if (std::abs(outputGainDb) > 0.01f)
+        {
+            float gainLinear = std::pow(10.0f, outputGainDb / 20.0f);
+            for (int i = 0; i < buffer.getNumSamples(); ++i)
+            {
+                channelL[i] *= gainLinear;
+                channelR[i] *= gainLinear;
+            }
+        }
     }
 }
 
