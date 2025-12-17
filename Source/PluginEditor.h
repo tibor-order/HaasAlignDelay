@@ -4,6 +4,7 @@
 #include "PluginProcessor.h"
 #include "UI/NuroLookAndFeel.h"
 #include "UI/NuroMeter.h"
+#include "UI/ResizeTriangle.h"
 
 /**
  * @brief HaasAlignDelayEditor - Nuro Audio Style UI
@@ -33,15 +34,19 @@ private:
     UI::NuroLookAndFeel nuroLookAndFeel;
     juce::Image logoImage;
 
-    // Fixed scale presets (like FabFilter Pro-Q)
-    static constexpr int baseWidth = 650;
-    static constexpr int baseHeight = 420;
-    static constexpr float scalePresets[] = { 0.5f, 0.75f, 1.0f, 1.5f };
-    static constexpr int numScalePresets = 4;
-    int currentScalePreset = 2;  // Default to 100%
+    // Size presets (16:10 aspect ratio like Waves plugins)
+    struct SizePreset { int width; int height; const char* name; };
+    static constexpr SizePreset sizePresets[] = {
+        { 800, 500, "Small" },
+        { 1000, 625, "Medium" },
+        { 1200, 750, "Large" },
+        { 1400, 875, "Extra Large" }
+    };
+    static constexpr int numSizePresets = 4;
+    int currentSizePreset = 1;  // Default to Medium (1000x625)
 
-    // Scale picker button
-    juce::TextButton scaleButton;
+    // Corner resize triangle with menu
+    UI::ResizeTriangle resizeTriangle;
 
     // Sliders
     juce::Slider delayLeftSlider;
