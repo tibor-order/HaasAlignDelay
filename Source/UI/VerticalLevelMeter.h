@@ -4,9 +4,13 @@
     VerticalLevelMeter.h
     LED-style segmented vertical level meter
 
-    Features:
-    - 24 segments (8x3px each, 2px gap)
+    Features (matching JSX LevelMeter component):
+    - 24 segments
+    - Each segment: 8px wide × 3px tall
+    - 2px gap between segments
     - Color zones: green (0-60%), yellow (60-75%), red (75-100%)
+    - Glow effect on active segments: box-shadow: 0 0 4px {color}66
+    - Inactive segment color: #222222
     - Smooth level decay (~50ms time constant)
     - Peak hold indicator (2 second hold)
 
@@ -25,15 +29,16 @@ class VerticalLevelMeter : public juce::Component,
                            public juce::Timer
 {
 public:
-    static constexpr int NUM_SEGMENTS = 24;
+    static constexpr int NUM_SEGMENTS = 48;   // More segments for higher resolution
     static constexpr int SEGMENT_WIDTH = 8;
     static constexpr int SEGMENT_HEIGHT = 3;
     static constexpr int SEGMENT_GAP = 2;
 
-    // Color zone boundaries (as segment indices)
-    static constexpr int GREEN_END = 14;      // 0-13 (60% of 24 ≈ 14.4)
-    static constexpr int YELLOW_END = 18;     // 14-17 (75% of 24 = 18)
-    // Red: 18-23 (75-100%)
+    // Color zone boundaries (as segment indices) - matching JSX percentages
+    // JSX: 0-60% green, 60-75% yellow, 75-100% red
+    static constexpr int GREEN_END = 29;      // segments 0-28 (60% of 48 ≈ 28.8)
+    static constexpr int YELLOW_END = 36;     // segments 29-35 (75% of 48 = 36)
+    // Red: segments 36-47 (75-100%)
 
     static constexpr float DECAY_TIME_MS = 50.0f;
     static constexpr float PEAK_HOLD_TIME_MS = 2000.0f;
@@ -134,15 +139,19 @@ public:
     /**
      * @brief Get the color for a specific segment index
      * @param segmentIndex 0-based index (0 = bottom, 23 = top)
+     * Matches JSX colors exactly:
+     *   - Green: #00ff88 (0-60%)
+     *   - Yellow: #ffcc00 (60-75%)
+     *   - Red: #ff3366 (75-100%)
      */
     juce::Colour getSegmentColor(int segmentIndex) const
     {
         if (segmentIndex < GREEN_END)
-            return ReOrderColors::statusGood;      // Green: #00ff88
+            return juce::Colour(0xff00ff88);      // Green: #00ff88
         else if (segmentIndex < YELLOW_END)
-            return ReOrderColors::statusWarn;      // Yellow: #ffcc00
+            return juce::Colour(0xffffcc00);      // Yellow: #ffcc00
         else
-            return ReOrderColors::statusError;     // Red: #ff3366
+            return juce::Colour(0xffff3366);      // Red: #ff3366
     }
 
     /**
@@ -177,48 +186,57 @@ public:
 
     void paint(juce::Graphics& g) override
     {
-        auto bounds = getLocalBounds().reduced(2);
+        auto bounds = getLocalBounds();
 
-        int totalHeight = NUM_SEGMENTS * SEGMENT_HEIGHT + (NUM_SEGMENTS - 1) * SEGMENT_GAP;
-        int startY = bounds.getBottom() - totalHeight;
+        // Calculate segment dimensions to fill available height
+        // Total height = NUM_SEGMENTS * segmentHeight + (NUM_SEGMENTS - 1) * gap
+        // We want this to equal bounds.getHeight()
+        float availableHeight = static_cast<float>(bounds.getHeight());
+        float totalGapHeight = static_cast<float>((NUM_SEGMENTS - 1) * SEGMENT_GAP);
+        float segmentHeight = (availableHeight - totalGapHeight) / static_cast<float>(NUM_SEGMENTS);
+
+        // Ensure minimum segment height
+        segmentHeight = std::max(segmentHeight, 2.0f);
 
         int litSegments = getLitSegmentCount();
         int peakSegment = static_cast<int>(peakLevel * NUM_SEGMENTS);
 
+        // Center the segments horizontally
+        float segmentX = static_cast<float>(bounds.getX() + (bounds.getWidth() - SEGMENT_WIDTH) / 2);
+
         for (int i = 0; i < NUM_SEGMENTS; ++i)
         {
-            int y = startY + (NUM_SEGMENTS - 1 - i) * (SEGMENT_HEIGHT + SEGMENT_GAP);
-            juce::Rectangle<int> segmentBounds(
-                bounds.getX() + (bounds.getWidth() - SEGMENT_WIDTH) / 2,
+            // Calculate Y position (segment 0 at bottom, segment 23 at top)
+            // Draw from top to bottom, but index from bottom
+            float y = static_cast<float>(bounds.getY()) +
+                      static_cast<float>(NUM_SEGMENTS - 1 - i) * (segmentHeight + SEGMENT_GAP);
+
+            juce::Rectangle<float> segmentBounds(
+                segmentX,
                 y,
-                SEGMENT_WIDTH,
-                SEGMENT_HEIGHT
+                static_cast<float>(SEGMENT_WIDTH),
+                segmentHeight
             );
 
             juce::Colour segmentColor = getSegmentColor(i);
 
-            if (i < litSegments)
-            {
-                // Lit segment
-                g.setColour(segmentColor);
-                g.fillRoundedRectangle(segmentBounds.toFloat(), 1.0f);
+            bool isLit = (i < litSegments) || (i == peakSegment && peakLevel > 0.0f);
 
-                // Add glow effect
-                g.setColour(segmentColor.withAlpha(0.3f));
-                g.drawRoundedRectangle(segmentBounds.toFloat().expanded(1), 2.0f, 1.0f);
+            if (isLit)
+            {
+                // Lit segment - fill with color
+                g.setColour(segmentColor);
+                g.fillRoundedRectangle(segmentBounds, 1.0f);
+
+                // Add glow effect (JSX: boxShadow: 0 0 4px {color}66)
+                g.setColour(segmentColor.withAlpha(0.4f));
+                g.drawRoundedRectangle(segmentBounds.expanded(1.0f), 2.0f, 1.0f);
             }
             else
             {
-                // Unlit segment
+                // Unlit segment - JSX uses #222222
                 g.setColour(juce::Colour(0xff222222));
-                g.fillRoundedRectangle(segmentBounds.toFloat(), 1.0f);
-            }
-
-            // Peak indicator
-            if (i == peakSegment && peakLevel > 0.0f)
-            {
-                g.setColour(segmentColor);
-                g.fillRoundedRectangle(segmentBounds.toFloat(), 1.0f);
+                g.fillRoundedRectangle(segmentBounds, 1.0f);
             }
         }
     }

@@ -87,12 +87,24 @@ add_executable(HaasAlignDelay_Tests
     Tests/UI/ReOrderLookAndFeelTest.cpp
     Tests/UI/LinearSliderLookAndFeelTest.cpp
     Tests/UI/ButtonLookAndFeelTest.cpp
+    Tests/UI/ModuleComponentTest.cpp
+    Tests/UI/DelayModuleTest.cpp
+    Tests/UI/WidthModuleTest.cpp
+    Tests/UI/PhaseModuleTest.cpp
+    Tests/UI/OutputModuleTest.cpp
     Tests/DSP/OutputGainTest.cpp
     Tests/DSP/WidthLowCutTest.cpp
     Tests/DSP/CorrectionSpeedTest.cpp
     Tests/DSP/ModuleBypassTest.cpp
     Tests/DSP/DelayLinkTest.cpp
     Tests/PluginProcessorParamTest.cpp
+    Tests/UI/HeaderFooterTest.cpp
+    Tests/UI/MeterStripTest.cpp
+    Tests/UI/PluginEditorLayoutTest.cpp
+    Tests/UI/PresetSelectorTest.cpp
+    Tests/UI/AnimationSystemTest.cpp
+    Tests/Presets/PresetManagerTest.cpp
+    Tests/Integration/FullPluginTest.cpp
     # Include PluginProcessor source for parameter tests
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp

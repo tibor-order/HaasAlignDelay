@@ -48,38 +48,70 @@ public:
     //==============================================================================
 
     /**
-     * @brief Get the Haas/Delay icon path
-     * Two offset sine waves representing delay
+     * @brief Get the Haas/Delay icon - main wave (full opacity)
+     * 50% size, centered
      */
     static juce::Path getHaasIconPath()
     {
         juce::Path path;
 
-        const float width = ICON_SIZE;
-        const float height = ICON_SIZE;
-        const float centerY = height / 2.0f;
-        const float amplitude = height / 4.0f;
-        const float offset = 8.0f;  // Horizontal offset between waves
+        // 50% smaller - use half the icon size for the wave
+        const float scale = 0.5f;
+        const float width = ICON_SIZE * scale;
+        const float offsetX = ICON_SIZE * (1.0f - scale) / 2.0f;  // Center horizontally
+        const float centerY = ICON_SIZE / 2.0f;
+        const float amplitude = ICON_SIZE * 0.15f;
 
-        // First wave (original signal)
-        path.startNewSubPath(5.0f, centerY);
-        for (float x = 5.0f; x <= width - 5.0f; x += 1.0f)
+        // Main wave (will be drawn at full opacity)
+        path.startNewSubPath(offsetX, centerY);
+        for (float x = 0.0f; x <= width; x += 1.0f)
         {
-            float normalizedX = (x - 5.0f) / (width - 10.0f);
+            float normalizedX = x / width;
             float y = centerY - amplitude * std::sin(normalizedX * juce::MathConstants<float>::twoPi * 2.0f);
-            path.lineTo(x, y);
-        }
-
-        // Second wave (delayed signal) - offset down and right
-        path.startNewSubPath(5.0f + offset, centerY + 6.0f);
-        for (float x = 5.0f + offset; x <= width - 5.0f; x += 1.0f)
-        {
-            float normalizedX = (x - 5.0f - offset) / (width - 10.0f - offset);
-            float y = centerY + 6.0f - amplitude * 0.7f * std::sin(normalizedX * juce::MathConstants<float>::twoPi * 2.0f);
-            path.lineTo(x, y);
+            path.lineTo(offsetX + x, y);
         }
 
         return path;
+    }
+
+    /**
+     * @brief Get the Haas/Delay icon - delayed/faded wave (75% opacity, offset)
+     * This wave overlaps the main wave by 80% and is offset vertically
+     */
+    static juce::Path getHaasDelayedWavePath(float animationPhase = 0.0f)
+    {
+        juce::Path path;
+
+        const float scale = 0.5f;
+        const float width = ICON_SIZE * scale;
+        const float offsetX = ICON_SIZE * (1.0f - scale) / 2.0f;
+        const float centerY = ICON_SIZE / 2.0f;
+        const float amplitude = ICON_SIZE * 0.15f;
+
+        // Vertical offset that animates (simulates the delay effect)
+        // Range: -8 to +8 pixels, controlled by animationPhase (0 to 1)
+        float verticalOffset = 8.0f * std::sin(animationPhase * juce::MathConstants<float>::twoPi);
+
+        // Delayed wave - 80% overlapping (slight horizontal offset)
+        float horizontalOffset = width * 0.2f;  // 20% offset = 80% overlap
+
+        path.startNewSubPath(offsetX + horizontalOffset, centerY + verticalOffset);
+        for (float x = 0.0f; x <= width - horizontalOffset; x += 1.0f)
+        {
+            float normalizedX = x / width;
+            float y = centerY + verticalOffset - amplitude * std::sin(normalizedX * juce::MathConstants<float>::twoPi * 2.0f);
+            path.lineTo(offsetX + horizontalOffset + x, y);
+        }
+
+        return path;
+    }
+
+    /**
+     * @brief Check if icon type uses custom opacity
+     */
+    static float getIconOpacity(IconType type)
+    {
+        return 1.0f;  // All icons use full opacity now (Haas handles its own)
     }
 
     /**
@@ -254,29 +286,68 @@ public:
      * @param type Icon type
      * @param bounds Bounds to draw within
      * @param isActive Whether to show glow effect
+     * @param animationPhase Animation phase (0.0 to 1.0) for animated icons like Haas
      */
-    static void drawIcon(juce::Graphics& g, IconType type, juce::Rectangle<float> bounds, bool isActive = false)
+    static void drawIcon(juce::Graphics& g, IconType type, juce::Rectangle<float> bounds, bool isActive = false, float animationPhase = 0.0f)
     {
-        juce::Path path;
+        juce::Colour color = getIconColor(type);
 
+        // Calculate transform for scaling
+        float scale = std::min(bounds.getWidth() / ICON_SIZE,
+                               bounds.getHeight() / ICON_SIZE);
+
+        juce::AffineTransform transform = juce::AffineTransform::scale(scale)
+            .translated(bounds.getCentreX() - (ICON_SIZE / 2.0f) * scale,
+                        bounds.getCentreY() - (ICON_SIZE / 2.0f) * scale);
+
+        // Special handling for Haas icon - two overlapping waves
+        if (type == IconType::Haas)
+        {
+            // Draw delayed/faded wave first (behind) at 75% opacity
+            juce::Path delayedPath = getHaasDelayedWavePath(animationPhase);
+            delayedPath.applyTransform(transform);
+
+            if (isActive)
+            {
+                g.setColour(color.withAlpha(0.2f));
+                g.strokePath(delayedPath, juce::PathStrokeType(DEFAULT_STROKE_WIDTH + 4.0f));
+                g.setColour(color.withAlpha(0.35f));
+                g.strokePath(delayedPath, juce::PathStrokeType(DEFAULT_STROKE_WIDTH + 2.0f));
+            }
+
+            g.setColour(color.withAlpha(0.75f));  // 75% opacity for delayed wave
+            g.strokePath(delayedPath, juce::PathStrokeType(DEFAULT_STROKE_WIDTH,
+                                                           juce::PathStrokeType::mitered,
+                                                           juce::PathStrokeType::rounded));
+
+            // Draw main wave (front) at full opacity
+            juce::Path mainPath = getHaasIconPath();
+            mainPath.applyTransform(transform);
+
+            if (isActive)
+            {
+                g.setColour(color.withAlpha(0.3f));
+                g.strokePath(mainPath, juce::PathStrokeType(DEFAULT_STROKE_WIDTH + 4.0f));
+                g.setColour(color.withAlpha(0.5f));
+                g.strokePath(mainPath, juce::PathStrokeType(DEFAULT_STROKE_WIDTH + 2.0f));
+            }
+
+            g.setColour(color);  // Full opacity for main wave
+            g.strokePath(mainPath, juce::PathStrokeType(DEFAULT_STROKE_WIDTH,
+                                                         juce::PathStrokeType::mitered,
+                                                         juce::PathStrokeType::rounded));
+            return;
+        }
+
+        // Standard handling for other icons
+        juce::Path path;
         switch (type)
         {
-            case IconType::Haas:   path = getHaasIconPath(); break;
             case IconType::Width:  path = getWidthIconPath(); break;
             case IconType::Phase:  path = getPhaseIconPath(); break;
             case IconType::Output: path = getOutputIconPath(); break;
+            default: return;
         }
-
-        juce::Colour color = getIconColor(type);
-
-        // Scale path to fit bounds
-        auto pathBounds = path.getBounds();
-        float scale = std::min(bounds.getWidth() / pathBounds.getWidth(),
-                               bounds.getHeight() / pathBounds.getHeight()) * 0.9f;
-
-        juce::AffineTransform transform = juce::AffineTransform::scale(scale)
-            .translated(bounds.getCentreX() - pathBounds.getCentreX() * scale,
-                        bounds.getCentreY() - pathBounds.getCentreY() * scale);
 
         path.applyTransform(transform);
 

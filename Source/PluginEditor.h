@@ -1,77 +1,124 @@
+/*
+  ==============================================================================
+
+    PluginEditor.h
+    HAAS FX Pro - Main Editor with ReOrder Audio Design System
+
+    Layout:
+    ┌──────────────────────────────────────────────────────────────┐
+    │ HEADER (48px)                                                │
+    ├────┬─────────┬─────────┬─────────┬─────────┬────────────────┤
+    │ IN │  DELAY  │  WIDTH  │  PHASE  │ OUTPUT  │      OUT       │
+    │ 50 │  flex   │  flex   │  flex   │  flex   │      50        │
+    ├────┴─────────┴─────────┴─────────┴─────────┴────────────────┤
+    │ FOOTER (40px)                                                │
+    └──────────────────────────────────────────────────────────────┘
+
+    Size: 1000 x 625px (default)
+
+  ==============================================================================
+*/
+
 #pragma once
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
-#include "UI/VoxProLookAndFeel.h"
-#include "UI/LevelMeter.h"
-#include "UI/CorrelationMeter.h"
+#include "UI/ReOrderColors.h"
+#include "UI/HeaderComponent.h"
+#include "UI/FooterComponent.h"
+#include "UI/MeterStrip.h"
+#include "UI/DelayModule.h"
+#include "UI/WidthModule.h"
+#include "UI/PhaseModule.h"
+#include "UI/OutputModule.h"
+#include "UI/AnimationSystem.h"
+#include "Presets/PresetManager.h"
 
 /**
- * @brief HaasAlignDelayEditor - Main Editor with Auto Phase Correction UI
- *
- * Plugin editor providing the user interface for the Haas Align Delay.
- * Features scalable UI with preset sizes and intelligent auto phase feedback.
+ * @brief HaasAlignDelayEditor - Main Editor with ReOrder Audio Design
  */
 class HaasAlignDelayEditor : public juce::AudioProcessorEditor,
                               private juce::Timer
 {
 public:
+    //==============================================================================
+    // Constants
+    //==============================================================================
+
+    static constexpr int DEFAULT_WIDTH = 1000;
+    static constexpr int DEFAULT_HEIGHT = 625;
+    static constexpr int HEADER_HEIGHT = 48;
+    static constexpr int FOOTER_HEIGHT = 40;
+    static constexpr int METER_STRIP_WIDTH = 50;
+    static constexpr int MODULE_SPACING = 15;
+
+    //==============================================================================
+    // Constructor/Destructor
+    //==============================================================================
+
     explicit HaasAlignDelayEditor(HaasAlignDelayProcessor&);
     ~HaasAlignDelayEditor() override;
+
+    //==============================================================================
+    // Component Overrides
+    //==============================================================================
 
     void paint(juce::Graphics&) override;
     void resized() override;
 
 private:
+    //==============================================================================
+    // Timer Callback
+    //==============================================================================
+
     void timerCallback() override;
-    void drawPanel(juce::Graphics& g, juce::Rectangle<float> bounds);
-    void drawCorrectionIndicator(juce::Graphics& g, juce::Rectangle<float> bounds, float scale);
-    void setScalePreset(int presetIndex);
+
+    //==============================================================================
+    // Members
+    //==============================================================================
 
     HaasAlignDelayProcessor& processorRef;
-    UI::VoxProLookAndFeel voxLookAndFeel;
-    juce::Image logoImage;
 
-    // Fixed scale presets (like FabFilter Pro-Q)
-    static constexpr int baseWidth = 580;
-    static constexpr int baseHeight = 380;
-    static constexpr float scalePresets[] = { 0.5f, 0.75f, 1.0f, 1.5f };
-    static constexpr int numScalePresets = 4;
-    int currentScalePreset = 2;  // Default to 100%
+    // Preset Manager
+    PresetManager presetManager;
 
-    // Scale picker button
-    juce::TextButton scaleButton;
+    // Animation Controller
+    AnimationSystem::AnimationController animationController;
 
-    // Sliders
-    juce::Slider delayLeftSlider;
-    juce::Slider delayRightSlider;
-    juce::Slider widthSlider;
-    juce::Slider mixSlider;
+    // Main Components
+    std::unique_ptr<HeaderComponent> header;
+    std::unique_ptr<FooterComponent> footer;
+    std::unique_ptr<MeterStrip> inputMeterStrip;
+    std::unique_ptr<MeterStrip> outputMeterStrip;
 
-    // Buttons
-    juce::TextButton phaseLeftButton;
-    juce::TextButton phaseRightButton;
-    juce::TextButton bypassButton;
-    juce::TextButton autoPhaseButton;
+    // Module Components
+    std::unique_ptr<DelayModule> delayModule;
+    std::unique_ptr<WidthModule> widthModule;
+    std::unique_ptr<PhaseModule> phaseModule;
+    std::unique_ptr<OutputModule> outputModule;
 
-    // Phase Safety selector (Relaxed/Balanced/Strict)
-    juce::ComboBox phaseSafetySelector;
-
-    // Meters
-    UI::LevelMeter inputMeter;
-    UI::LevelMeter outputMeter;
-    UI::CorrelationMeter correlationMeter;
-
-    // Attachments
+    // Parameter Attachments - Delay Module
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayLeftAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayRightAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> delayLinkAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> delayBypassAttachment;
+
+    // Parameter Attachments - Width Module
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> widthAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> widthLowCutAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> phaseLeftAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> phaseRightAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> bypassAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> widthBypassAttachment;
+
+    // Parameter Attachments - Phase Module
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> autoPhaseAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> phaseSafetyAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> correctionSpeedAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> phaseBypassAttachment;
+
+    // Parameter Attachments - Output Module
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> outputGainAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> mixAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> outputBypassAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(HaasAlignDelayEditor)
 };
